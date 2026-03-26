@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FocusFlow</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --white:   #ffffff;
+      --off:     #fafaf9;
+      --rule:    #ebebea;
+      --rule2:   #f0f0ef;
+      --accent:  #2d2d2d;
+      --muted:   #b0afa9;
+      --dim:     #777670;
+      --ink:     #1c1c1a;
+      --teal:    #4a8b7a;
+      --teal-bg: #f3f8f6;
+      --gold:    #8b6914;
+      --gold-bg: #fdf8ef;
+      --danger:  #c0392b;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      background: var(--white);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--white);
+      border-bottom: 1px solid var(--rule);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      flex-shrink: 0;
+    }
+
+    .wordmark {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+
+    .divider-v {
+      width: 1px;
+      height: 20px;
+      background: var(--rule);
+      flex-shrink: 0;
+    }
+
+    /* ── TIMER ── */
+    .timer-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .timer-face {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .timer-digits {
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+      min-width: 60px;
+      transition: color 0.3s;
+    }
+    .timer-digits.urgent { color: var(--danger); }
+    .timer-digits.running { color: var(--teal); }
+
+    .timer-status {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* Thin arc progress */
+    .arc-wrap { position: relative; width: 28px; height: 28px; flex-shrink: 0; }
+    .arc-svg { width: 28px; height: 28px; transform: rotate(-90deg); }
+    .arc-bg   { fill: none; stroke: var(--rule); stroke-width: 1.5; }
+    .arc-fill { fill: none; stroke: var(--teal); stroke-width: 1.5; stroke-linecap: round;
+                stroke-dasharray: 75.4; stroke-dashoffset: 75.4; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+    .arc-fill.urgent { stroke: var(--danger); }
+
+    .presets {
+      display: flex;
+      gap: 2px;
+    }
+    .pre {
+      padding: 3px 9px;
+      border: 1px solid var(--rule);
+      background: none;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: all 0.12s;
+    }
+    .pre:first-child { border-radius: 3px 0 0 3px; }
+    .pre:last-child  { border-radius: 0 3px 3px 0; }
+    .pre:not(:first-child) { border-left: none; }
+    .pre:hover { color: var(--ink); border-color: var(--accent); z-index: 1; }
+    .pre.active { color: var(--ink); border-color: var(--accent); background: var(--off); }
+
+    .t-input {
+      width: 46px;
+      padding: 3px 7px;
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--ink);
+      background: none;
+      text-align: center;
+      outline: none;
+    }
+    .t-input:focus { border-color: var(--dim); }
+
+    .t-btns { display: flex; gap: 6px; }
+
+    .tbtn {
+      padding: 4px 12px;
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      background: none;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--dim);
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: all 0.12s;
+    }
+    .tbtn:hover { border-color: var(--ink); color: var(--ink); }
+    .tbtn.start {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+    .tbtn.start:hover { background: var(--teal); color: white; }
+
+    .notif-label {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; color: var(--muted);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .notif-label input { accent-color: var(--teal); cursor: pointer; }
+
+    /* ── MAIN ── */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-right: 1px solid var(--rule);
+    }
+    .col:last-child { border-right: none; }
+
+    .col-ts   { width: 108px; flex-shrink: 0; background: var(--off); }
+    .col-log  { flex: 1.6; background: var(--white); }
+    .col-pool { flex: 1; background: var(--white); }
+
+    .col-head {
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--rule);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .col-name {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .col-count {
+      font-size: 10px;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ghost-btn {
+      font-family: inherit;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-transform: uppercase;
+      padding: 0;
+      transition: color 0.12s;
+    }
+    .ghost-btn:hover { color: var(--danger); }
+
+    .col-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .col-body::-webkit-scrollbar { width: 3px; }
+    .col-body::-webkit-scrollbar-thumb { background: var(--rule); }
+
+    /* ── TIMESTAMPS ── */
+    .ts-item {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--rule2);
+    }
+    .ts-item:last-child { border-bottom: none; }
+    .ts-hm { font-size: 13px; font-weight: 400; color: var(--dim); font-variant-numeric: tabular-nums; }
+    .ts-d  { font-size: 10px; color: var(--muted); margin-top: 1px; letter-spacing: 0.02em; }
+
+    /* ── LOG ── */
+    .log-zone {
+      min-height: 100px;
+    }
+    .log-zone.drag-over .log-hint { opacity: 0; }
+    .log-zone.drag-over { background: var(--teal-bg); border-radius: 4px; }
+
+    .log-hint {
+      padding: 40px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 2;
+      transition: opacity 0.2s;
+    }
+    .log-hint .arr { display: block; font-size: 18px; margin-bottom: 4px; color: var(--rule); }
+
+    .log-row {
+      padding: 11px 0;
+      border-bottom: 1px solid var(--rule2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: fadeUp 0.2s ease;
+    }
+    .log-row:last-child { border-bottom: none; }
+    .log-text { flex: 1; font-size: 13px; font-weight: 400; line-height: 1.5; }
+    .log-del-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--rule); font-size: 11px; padding: 2px;
+      transition: color 0.12s; flex-shrink: 0;
+    }
+    .log-del-btn:hover { color: var(--danger); }
+
+    /* Completion checkbox */
+    .check-btn {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid var(--rule);
+      background: white;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 0;
+      transition: border-color 0.15s, background 0.2s, transform 0.15s;
+      position: relative;
+    }
+    .check-btn:hover:not(.done) {
+      border-color: var(--teal);
+      transform: scale(1.1);
+    }
+    .check-btn.done {
+      background: #2a9d6f;
+      border-color: #2a9d6f;
+      animation: checkPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .check-btn.done::after {
+      content: '';
+      display: block;
+      width: 9px; height: 5px;
+      border-left: 2px solid white;
+      border-bottom: 2px solid white;
+      transform: rotate(-45deg) translateY(-1px);
+    }
+    @keyframes checkPop {
+      0%   { transform: scale(0.6); }
+      55%  { transform: scale(1.25); }
+      100% { transform: scale(1); }
+    }
+
+    /* Completed row styling */
+    .log-row.is-done .log-text {
+      color: var(--dim);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Duration under timestamp */
+    .ts-dur {
+      font-size: 10px;
+      color: var(--teal);
+      margin-top: 3px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── POOL ── */
+    .pool-add {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border-bottom: 1px solid var(--rule);
+      flex-shrink: 0;
+    }
+    .pool-in {
+      flex: 1;
+      padding: 13px 20px;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 13px;
+      background: none;
+      color: var(--ink);
+    }
+    .pool-in::placeholder { color: var(--muted); }
+    .pool-add-btn {
+      padding: 0 20px;
+      height: 44px;
+      border: none;
+      border-left: 1px solid var(--rule);
+      background: none;
+      font-family: inherit;
+      font-size: 16px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 0.12s;
+    }
+    .pool-add-btn:hover { color: var(--ink); }
+
+    .pool-empty {
+      padding: 40px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 2;
+    }
+
+    .pool-row {
+      padding: 11px 0;
+      border-bottom: 1px solid var(--rule2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: grab;
+      transition: background 0.1s;
+    }
+    .pool-row:last-child { border-bottom: none; }
+    .pool-row:hover { background: var(--gold-bg); margin: 0 -16px; padding: 11px 16px; }
+    .pool-row.dragging { opacity: 0.3; cursor: grabbing; }
+
+    .drag-dot {
+      color: var(--rule);
+      font-size: 12px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .pool-row:hover .drag-dot { color: var(--muted); }
+    .pool-txt { flex: 1; font-size: 13px; line-height: 1.5; user-select: none; }
+    .pool-del-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--rule); font-size: 11px; padding: 2px;
+      transition: color 0.12s; flex-shrink: 0;
+    }
+    .pool-del-btn:hover { color: var(--danger); }
+
+    /* ── DING OVERLAY ── */
+    #overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    #overlay.on { display: flex; }
+
+    .ding-box {
+      background: var(--white);
+      border: 1px solid var(--rule);
+      padding: 48px 56px;
+      text-align: center;
+      max-width: 360px;
+      animation: appear 0.25s ease;
+    }
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ding-mark  { font-size: 28px; display: block; margin-bottom: 20px; }
+    .ding-title { font-size: 16px; font-weight: 500; margin-bottom: 8px; letter-spacing: -0.01em; }
+    .ding-body  { font-size: 12px; color: var(--dim); margin-bottom: 28px; line-height: 1.7; }
+    .ding-row   { display: flex; gap: 10px; justify-content: center; }
+
+    .ding-btn {
+      padding: 8px 22px;
+      border: 1px solid var(--rule);
+      border-radius: 2px;
+      background: none;
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      color: var(--dim);
+      transition: all 0.12s;
+    }
+    .ding-btn:hover { border-color: var(--ink); color: var(--ink); }
+    .ding-btn.primary { border-color: var(--teal); color: var(--teal); }
+    .ding-btn.primary:hover { background: var(--teal); color: white; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      background: var(--ink);
+      color: white;
+      padding: 8px 18px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      border-radius: 2px;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 8px 32px;
+      display: flex;
+      gap: 28px;
+      background: var(--off);
+      flex-shrink: 0;
+    }
+    footer span {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+    }
+    #sess-stat { margin-left: auto; }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="wordmark">FocusFlow</div>
+  <div class="divider-v"></div>
+
+  <div class="timer-row">
+    <div class="arc-wrap">
+      <svg class="arc-svg" viewBox="0 0 28 28">
+        <circle class="arc-bg" cx="14" cy="14" r="12"/>
+        <circle class="arc-fill" id="arcFill" cx="14" cy="14" r="12"/>
+      </svg>
+    </div>
+
+    <div class="timer-face">
+      <div class="timer-digits" id="timerDigits">25:00</div>
+      <div class="timer-status" id="timerStatus">ready</div>
+    </div>
+
+    <div class="presets">
+      <button class="pre active" onclick="setPreset(25,this)">25</button>
+      <button class="pre" onclick="setPreset(50,this)">50</button>
+      <button class="pre" onclick="setPreset(15,this)">15</button>
+      <button class="pre" onclick="setPreset(5,this)">5</button>
+    </div>
+
+    <input class="t-input" id="customMin" type="number" min="1" max="180" placeholder="min"
+           title="Custom duration (minutes)" onchange="setCustom(this.value)"/>
+
+    <div class="t-btns">
+      <button class="tbtn start" onclick="startTimer()">▶ Start</button>
+      <button class="tbtn" onclick="pauseTimer()">Pause</button>
+      <button class="tbtn" onclick="resetTimer()">Reset</button>
+    </div>
+
+    <label class="notif-label">
+      <input type="checkbox" id="notifChk" onchange="toggleNotif(this)"/>
+      Notify
+    </label>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- Timestamps -->
+  <div class="col col-ts">
+    <div class="col-head">
+      <span class="col-name">Time</span>
+      <span class="col-count" id="logCount">0</span>
+    </div>
+    <div class="col-body" id="tsCol"></div>
+  </div>
+
+  <!-- Work Log -->
+  <div class="col col-log">
+    <div class="col-head">
+      <span class="col-name">Work done</span>
+      <button class="ghost-btn" onclick="clearLog()">Clear</button>
+    </div>
+    <div class="col-body">
+      <div class="log-zone" id="logZone"
+           ondragover="onDragOver(event)"
+           ondragleave="onDragLeave(event)"
+           ondrop="onDrop(event)">
+        <div class="log-hint" id="logHint">
+          <span class="arr">←</span>
+          Drag a task here<br/>to mark it complete
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pool -->
+  <div class="col col-pool">
+    <div class="col-head">
+      <span class="col-name">Task pool</span>
+      <span class="col-count" id="poolCount">0</span>
+    </div>
+    <div class="pool-add">
+      <input class="pool-in" id="poolInput" placeholder="Add a task…"
+             onkeydown="if(event.key==='Enter')addTask()"/>
+      <button class="pool-add-btn" onclick="addTask()">+</button>
+    </div>
+    <div class="col-body" id="poolCol">
+      <div class="pool-empty" id="poolEmpty">No tasks yet.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <span>Drag from pool → work done to log completion</span>
+  <span>Timer dings when session ends</span>
+  <span id="sess-stat"></span>
+</footer>
+
+<!-- ── DING OVERLAY ── -->
+<div id="overlay">
+  <div class="ding-box">
+    <span class="ding-mark">○</span>
+    <div class="ding-title">Session complete</div>
+    <div class="ding-body" id="dingBody">Your focus session has ended.<br/>Take a moment before continuing.</div>
+    <div class="ding-row">
+      <button class="ding-btn primary" onclick="dismissDing()">Start again</button>
+      <button class="ding-btn" onclick="closeDing()">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────
+//  STATE
+// ─────────────────────────
+let tasks    = JSON.parse(localStorage.getItem('ff2_tasks') || '[]');
+let logItems = JSON.parse(localStorage.getItem('ff2_log')   || '[]');
+let timerTotal     = 25 * 60;
+let timerLeft      = timerTotal;
+let timerRunning   = false;
+let timerTick      = null;
+let notifEnabled   = false;
+let sessionCount   = 0;
+let currentDragId  = null;
+
+// ─────────────────────────
+//  AUDIO
+// ─────────────────────────
+function playDing() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880,0,0.7,0.35],[1100,0.2,0.8,0.28],[1320,0.42,1.1,0.22]].forEach(([f,t,d,v]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, ctx.currentTime + t);
+      o.frequency.exponentialRampToValueAtTime(f * 0.6, ctx.currentTime + t + d);
+      g.gain.setValueAtTime(0, ctx.currentTime + t);
+      g.gain.linearRampToValueAtTime(v, ctx.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + d);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + d);
+    });
+  } catch(e) {}
+}
+
+// ─────────────────────────
+//  TIMER
+// ─────────────────────────
+function setPreset(min, btn) {
+  document.querySelectorAll('.pre').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customMin').value = '';
+  timerTotal = min * 60;
+  timerLeft  = timerTotal;
+  timerRunning = false;
+  clearInterval(timerTick);
+  renderTimer();
+  document.getElementById('timerStatus').textContent = 'ready';
+}
+
+function setCustom(val) {
+  const m = parseInt(val);
+  if (!m || m < 1) return;
+  document.querySelectorAll('.pre').forEach(b => b.classList.remove('active'));
+  timerTotal = m * 60;
+  timerLeft  = timerTotal;
+  timerRunning = false;
+  clearInterval(timerTick);
+  renderTimer();
+}
+
+function startTimer() {
+  if (timerRunning) return;
+  if (timerLeft <= 0) timerLeft = timerTotal;
+  timerRunning = true;
+  timerTick = setInterval(tick, 1000);
+  document.getElementById('timerStatus').textContent = 'running';
+  renderTimer();
+}
+function pauseTimer() {
+  timerRunning = false; clearInterval(timerTick);
+  document.getElementById('timerStatus').textContent = 'paused';
+}
+function resetTimer() {
+  timerRunning = false; clearInterval(timerTick);
+  timerLeft = timerTotal; renderTimer();
+  document.getElementById('timerStatus').textContent = 'ready';
+}
+function tick() {
+  if (timerLeft <= 0) { timerRunning = false; clearInterval(timerTick); done(); return; }
+  timerLeft--; renderTimer();
+}
+
+function renderTimer() {
+  const m = Math.floor(timerLeft / 60), s = timerLeft % 60;
+  document.getElementById('timerDigits').textContent =
+    String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  const urgent = timerLeft <= 60 && timerRunning;
+  const el = document.getElementById('timerDigits');
+  el.className = 'timer-digits' + (urgent ? ' urgent' : timerRunning ? ' running' : '');
+  const pct   = timerLeft / timerTotal;
+  const circ  = 75.4;
+  document.getElementById('arcFill').style.strokeDashoffset = circ * pct;
+  document.getElementById('arcFill').classList.toggle('urgent', urgent);
+}
+
+function done() {
+  timerLeft = 0; renderTimer();
+  document.getElementById('timerStatus').textContent = 'done';
+  playDing();
+  const m = Math.round(timerTotal / 60);
+  document.getElementById('dingBody').textContent =
+    `Your ${m}-minute session has ended.\nTake a moment before continuing.`;
+  document.getElementById('overlay').classList.add('on');
+  if (notifEnabled && Notification.permission === 'granted')
+    new Notification('FocusFlow', { body: 'Session complete. Well done.' });
+}
+
+function dismissDing() {
+  document.getElementById('overlay').classList.remove('on');
+  resetTimer(); startTimer();
+}
+function closeDing() {
+  document.getElementById('overlay').classList.remove('on');
+  resetTimer();
+}
+
+// ─────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────
+function toggleNotif(cb) {
+  if (cb.checked) {
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(p => {
+        notifEnabled = p === 'granted';
+        if (!notifEnabled) { cb.checked = false; toast('Notifications blocked'); }
+        else toast('Notifications on');
+      });
+    } else if (Notification.permission === 'granted') {
+      notifEnabled = true; toast('Notifications on');
+    } else { cb.checked = false; toast('Notifications blocked'); }
+  } else { notifEnabled = false; }
+}
+
+// ─────────────────────────
+//  POOL
+// ─────────────────────────
+function addTask() {
+  const inp = document.getElementById('poolInput');
+  const txt = inp.value.trim(); if (!txt) return;
+  tasks.push({ id: Date.now().toString(), text: txt });
+  inp.value = ''; save(); renderPool();
+}
+function delTask(id) {
+  tasks = tasks.filter(t => t.id !== id); save(); renderPool();
+}
+function renderPool() {
+  const col = document.getElementById('poolCol');
+  col.innerHTML = '';
+  if (!tasks.length) {
+    col.innerHTML = '<div class="pool-empty" id="poolEmpty">No tasks yet.</div>';
+  } else {
+    tasks.forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'pool-row';
+      el.draggable = true;
+      el.dataset.id = t.id;
+      el.innerHTML = `
+        <span class="drag-dot">⠿</span>
+        <span class="pool-txt">${esc(t.text)}</span>
+        <button class="pool-del-btn" onclick="delTask('${t.id}')">✕</button>`;
+      el.addEventListener('dragstart', e => {
+        currentDragId = t.id;
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      el.addEventListener('dragend', () => el.classList.remove('dragging'));
+      col.appendChild(el);
+    });
+  }
+  document.getElementById('poolCount').textContent = tasks.length;
+}
+
+// ─────────────────────────
+//  LOG
+// ─────────────────────────
+function onDragOver(e) {
+  e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+  document.getElementById('logZone').classList.add('drag-over');
+}
+function onDragLeave() {
+  document.getElementById('logZone').classList.remove('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  document.getElementById('logZone').classList.remove('drag-over');
+  if (!currentDragId) return;
+  const task = tasks.find(t => t.id === currentDragId);
+  if (!task) return;
+  const entry = {
+    id: Date.now().toString(),
+    text: task.text,
+    ts: new Date().toISOString(),
+    completed: false,
+    completedAt: null
+  };
+  logItems.unshift(entry);
+  tasks = tasks.filter(t => t.id !== currentDragId);
+  currentDragId = null;
+  sessionCount++;
+  save(); renderPool(); renderLog();
+  toast('Logged: ' + task.text.slice(0, 36));
+  updateStats();
+}
+function delLog(id) {
+  logItems = logItems.filter(e => e.id !== id); save(); renderLog();
+}
+function clearLog() {
+  if (!logItems.length) return;
+  if (!confirm('Clear the work log?')) return;
+  logItems = []; save(); renderLog();
+}
+function completeTask(id) {
+  const entry = logItems.find(e => e.id === id);
+  if (!entry || entry.completed) return;
+  entry.completed = true;
+  entry.completedAt = new Date().toISOString();
+  save();
+  // Animate the checkbox in-place (no full re-render, keeps animation crisp)
+  const btn = document.querySelector(`.check-btn[data-id="${id}"]`);
+  if (btn) { btn.classList.add('done'); btn.disabled = true; }
+  const row = document.querySelector(`.log-row[data-id="${id}"]`);
+  if (row) row.classList.add('is-done');
+  // Add duration to timestamp cell
+  const tsCell = document.querySelector(`.ts-item[data-id="${id}"]`);
+  if (tsCell) {
+    const ms = new Date(entry.completedAt) - new Date(entry.ts);
+    const durEl = document.createElement('div');
+    durEl.className = 'ts-dur';
+    durEl.textContent = '(' + fmtDur(ms) + ')';
+    tsCell.appendChild(durEl);
+  }
+  playCheck();
+  toast('✓ Done!');
+}
+function renderLog() {
+  const zone = document.getElementById('logZone');
+  const tsCol = document.getElementById('tsCol');
+  zone.innerHTML = '';
+  tsCol.innerHTML = '';
+  if (!logItems.length) {
+    zone.innerHTML = `<div class="log-hint" id="logHint">
+      <span class="arr">←</span>Drag a task here<br/>to mark it complete</div>`;
+  } else {
+    logItems.forEach(e => {
+      const d = new Date(e.ts);
+      // Log row
+      const row = document.createElement('div');
+      row.className = 'log-row' + (e.completed ? ' is-done' : '');
+      row.dataset.id = e.id;
+      const checkDone = e.completed ? ' done' : '';
+      row.innerHTML = `
+        <button class="check-btn${checkDone}" data-id="${e.id}"
+          onclick="completeTask('${e.id}')"
+          ${e.completed ? 'disabled' : ''}
+          title="${e.completed ? 'Complete' : 'Mark complete'}"></button>
+        <span class="log-text">${esc(e.text)}</span>
+        <button class="log-del-btn" onclick="delLog('${e.id}')">✕</button>`;
+      zone.appendChild(row);
+      // Timestamp cell
+      const ts = document.createElement('div');
+      ts.className = 'ts-item';
+      ts.dataset.id = e.id;
+      let inner = `<div class="ts-hm">${fmt(d)}</div><div class="ts-d">${fmtD(d)}</div>`;
+      if (e.completed && e.completedAt) {
+        const ms = new Date(e.completedAt) - new Date(e.ts);
+        inner += `<div class="ts-dur">(${fmtDur(ms)})</div>`;
+      }
+      ts.innerHTML = inner;
+      tsCol.appendChild(ts);
+    });
+  }
+  document.getElementById('logCount').textContent = logItems.length;
+}
+
+// ─────────────────────────
+//  HELPERS
+// ─────────────────────────
+const fmt  = d => d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+const fmtD = d => d.toLocaleDateString([],{month:'short',day:'numeric'});
+const esc  = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function fmtDur(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 1) return '< 1 min';
+  if (min < 60) return min + ' min';
+  const h = Math.floor(min / 60), m = min % 60;
+  return m ? `${h} hr ${m} min` : `${h} hr`;
+}
+function playCheck() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[660, 0, 0.08, 0.25],[880, 0.09, 0.22, 0.18]].forEach(([f,t,d,v]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, ctx.currentTime + t);
+      g.gain.setValueAtTime(0, ctx.currentTime + t);
+      g.gain.linearRampToValueAtTime(v, ctx.currentTime + t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + d);
+      o.start(ctx.currentTime + t);
+      o.stop(ctx.currentTime + t + d);
+    });
+  } catch(e) {}
+}
+function save() {
+  localStorage.setItem('ff2_tasks', JSON.stringify(tasks));
+  localStorage.setItem('ff2_log',   JSON.stringify(logItems));
+}
+let _tt;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('on'), 2400);
+}
+function updateStats() {
+  document.getElementById('sess-stat').textContent =
+    sessionCount ? `${sessionCount} logged this session` : '';
+}
+
+// ─────────────────────────
+//  INIT
+// ─────────────────────────
+renderPool(); renderLog(); renderTimer(); updateStats();
+</script>
+</body>
+</html>
