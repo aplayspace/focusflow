@@ -2,7 +2,7 @@
 
 A minimal, single-file focus manager built for ADHD brains. No accounts, no installs, no distractions — just open `index.html` and work.
 
-**[Try it live →](https://aplayspace.github.io/focusflow-adhd/)**
+**[Try it live →](https://aplayspace.github.io/focusflow/)**
 
 ---
 
