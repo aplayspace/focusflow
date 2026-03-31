@@ -492,6 +492,58 @@
       letter-spacing: 0.03em;
     }
     #sess-stat { margin-left: auto; }
+  /* ── DAY NAV ── */
+  .day-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    height: 36px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--off);
+    flex-shrink: 0;
+    padding: 0 20px;
+  }
+  .day-nav-centre {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+    justify-content: center;
+  }
+  .day-nav-label {
+    font-size: 12px;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .day-nav-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+    transition: color 0.12s;
+  }
+  .day-nav-btn:hover:not(:disabled) { color: var(--ink); }
+  .day-nav-btn:disabled { color: var(--rule); cursor: default; }
+  .today-pill {
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border: 1px solid var(--teal);
+    border-radius: 20px;
+    background: none;
+    color: var(--teal);
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .today-pill:hover { background: var(--teal); color: white; }
+  .today-pill.hidden { visibility: hidden; }
   </style>
 </head>
 <body>
@@ -536,6 +588,16 @@
     </label>
   </div>
 </header>
+
+<!-- ── DAY NAV ── -->
+<nav class="day-nav">
+  <button class="day-nav-btn" id="prevDay" onclick="changeDay(-1)">&#8249;</button>
+  <div class="day-nav-centre">
+    <span class="day-nav-label" id="dayNavLabel"></span>
+    <button class="today-pill" id="todayPill" onclick="goToday()">Today</button>
+  </div>
+  <button class="day-nav-btn" id="nextDay" onclick="changeDay(1)">&#8250;</button>
+</nav>
 
 <!-- ── MAIN ── -->
 <main>
@@ -810,7 +872,8 @@ function onDrop(e) {
   currentDragId = null;
   sessionCount++;
   save(); renderPool(); renderLog();
-  toast('Logged: ' + task.text.slice(0, 36));
+  const _isToday = isSameDay(selectedDate.toISOString(), new Date());
+  toast(_isToday ? 'Logged: ' + task.text.slice(0, 36) : 'Logged to today');
   updateStats();
 }
 function delLog(id) {
@@ -879,11 +942,18 @@ function renderLog() {
   const tsCol = document.getElementById('tsCol');
   zone.innerHTML = '';
   tsCol.innerHTML = '';
-  if (!logItems.length) {
-    zone.innerHTML = `<div class="log-hint" id="logHint">
-      <span class="arr">←</span>Drag a task here<br/>to focus on it</div>`;
+  const today = new Date();
+  const isToday = isSameDay(selectedDate.toISOString(), today);
+  const dayItems = logItems.filter(e => isSameDay(e.ts, selectedDate));
+  if (!dayItems.length) {
+    if (isToday) {
+      zone.innerHTML = `<div class="log-hint" id="logHint">
+        <span class="arr">←</span>Drag a task here<br/>to focus on it</div>`;
+    } else {
+      zone.innerHTML = `<div class="log-hint">No work logged on this day.</div>`;
+    }
   } else {
-    logItems.forEach(e => {
+    dayItems.forEach(e => {
       const d = new Date(e.ts);
       // Log row
       const row = document.createElement('div');
@@ -911,7 +981,7 @@ function renderLog() {
       tsCol.appendChild(ts);
     });
   }
-  document.getElementById('logCount').textContent = logItems.length;
+  document.getElementById('logCount').textContent = dayItems.length;
 }
 
 // ─────────────────────────
@@ -959,9 +1029,49 @@ function updateStats() {
 }
 
 // ─────────────────────────
+//  DAY NAVIGATION
+// ─────────────────────────
+let selectedDate = new Date();
+
+function isSameDay(isoStr, date) {
+  const d = new Date(isoStr);
+  return d.getFullYear() === date.getFullYear() &&
+         d.getMonth()    === date.getMonth()    &&
+         d.getDate()     === date.getDate();
+}
+
+function changeDay(delta) {
+  const d = new Date(selectedDate);
+  d.setDate(d.getDate() + delta);
+  const today = new Date();
+  if (d > today) return; // no future navigation
+  selectedDate = d;
+  renderDayNav();
+  renderLog();
+}
+
+function goToday() {
+  selectedDate = new Date();
+  renderDayNav();
+  renderLog();
+}
+
+function renderDayNav() {
+  const today = new Date();
+  const isToday = isSameDay(selectedDate.toISOString(), today);
+  const label = isToday
+    ? 'Today — ' + selectedDate.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' })
+    : selectedDate.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
+  document.getElementById('dayNavLabel').textContent = label;
+  document.getElementById('nextDay').disabled = isToday;
+  const pill = document.getElementById('todayPill');
+  if (isToday) pill.classList.add('hidden'); else pill.classList.remove('hidden');
+}
+
+// ─────────────────────────
 //  INIT
 // ─────────────────────────
-renderPool(); renderLog(); renderTimer(); updateStats();
+renderPool(); renderLog(); renderTimer(); updateStats(); renderDayNav();
 </script>
 </body>
 </html>
