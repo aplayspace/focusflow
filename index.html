@@ -325,12 +325,12 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes sandSweep {
-      0%   { opacity: 1; transform: translateY(0) translateX(0) rotate(0deg) scale(1); }
-      100% { opacity: 0; transform: translateY(var(--sand-dy, -8px)) translateX(var(--sand-dx, 0px)) rotate(var(--sand-rot, 0deg)) scale(0.85); }
+    @keyframes sandScatter {
+      0%   { opacity: 1; transform: translateY(0) translateX(var(--sx,0px)) rotate(var(--sr,0deg)) scale(1); }
+      100% { opacity: 0; transform: translateY(-24px) translateX(var(--sx,0px)) rotate(var(--sr,0deg)) scale(0.7); }
     }
     .sand-out {
-      animation: sandSweep var(--sand-dur, 700ms) ease-out var(--sand-delay, 0ms) forwards;
+      animation: sandScatter var(--sd,700ms) ease-out forwards;
       pointer-events: none;
     }
 
@@ -817,39 +817,39 @@ function delLog(id) {
   logItems = logItems.filter(e => e.id !== id); save(); renderLog();
 }
 function clearLog() {
-  if (!logItems.length) return;
-  // Only animate rows that are currently visible (respects day-nav filtering)
-  const rows   = [...document.querySelectorAll('.log-row')].filter(r => getComputedStyle(r).display !== 'none');
-  if (!rows.length) { logItems = []; save(); renderLog(); return; }
+  // Only animate visible rows for the selected day
+  const visibleRows = Array.from(document.querySelectorAll('.log-row'));
+  const visibleTs   = Array.from(document.querySelectorAll('.ts-item'));
+  if (!visibleRows.length) return;
 
-  let maxEnd = 0;
-  rows.forEach((row, i) => {
-    const dx    = Math.round(Math.random() * 40 - 20);          // –20 to +20 px
-    const rot   = (Math.random() * 16 - 8).toFixed(1);          // –8 to +8 deg
-    const dur   = Math.round(550 + Math.random() * 300);         // 550–850 ms
-    const delay = Math.round(i * (50 + Math.random() * 30));     // 50–80 ms stagger
-
-    row.style.setProperty('--sand-dx',    dx + 'px');
-    row.style.setProperty('--sand-dy',    '-8px');
-    row.style.setProperty('--sand-rot',   rot + 'deg');
-    row.style.setProperty('--sand-dur',   dur + 'ms');
-    row.style.setProperty('--sand-delay', delay + 'ms');
+  let maxDelay = 0;
+  visibleRows.forEach((row, i) => {
+    const sx  = (Math.random() * 40 - 20).toFixed(1) + 'px';
+    const sr  = (Math.random() * 16 - 8).toFixed(1)  + 'deg';
+    const sd  = (550 + Math.random() * 300).toFixed(0) + 'ms';
+    const delay = i * 65;
+    maxDelay = Math.max(maxDelay, delay + parseFloat(sd));
+    row.style.setProperty('--sx', sx);
+    row.style.setProperty('--sr', sr);
+    row.style.setProperty('--sd', sd);
+    row.style.animationDelay = delay + 'ms';
     row.classList.add('sand-out');
-
-    const tsItem = document.querySelector(`.ts-item[data-id="${row.dataset.id}"]`);
-    if (tsItem) {
-      tsItem.style.setProperty('--sand-dx',    dx + 'px');
-      tsItem.style.setProperty('--sand-dy',    '-8px');
-      tsItem.style.setProperty('--sand-rot',   rot + 'deg');
-      tsItem.style.setProperty('--sand-dur',   dur + 'ms');
-      tsItem.style.setProperty('--sand-delay', delay + 'ms');
-      tsItem.classList.add('sand-out');
+    if (visibleTs[i]) {
+      visibleTs[i].style.setProperty('--sx', sx);
+      visibleTs[i].style.setProperty('--sr', sr);
+      visibleTs[i].style.setProperty('--sd', sd);
+      visibleTs[i].style.animationDelay = delay + 'ms';
+      visibleTs[i].classList.add('sand-out');
     }
-
-    maxEnd = Math.max(maxEnd, delay + dur);
   });
 
-  setTimeout(() => { logItems = []; save(); renderLog(); }, maxEnd + 120);
+  setTimeout(() => {
+    // Remove only the log entries that were visible (same-day filter)
+    const visibleIds = visibleRows.map(r => r.dataset.id).filter(Boolean);
+    logItems = logItems.filter(e => !visibleIds.includes(e.id));
+    save();
+    renderLog();
+  }, maxDelay + 120);
 }
 function completeTask(id) {
   const entry = logItems.find(e => e.id === id);
